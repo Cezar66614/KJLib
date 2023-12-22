@@ -10,7 +10,7 @@ char *_parseJsonString(const char *data, const char *finalPosition, json *output
 void freeEntries(jsonEntry *input, const size_t entriesCount) {
   size_t i = 0;
   for (i = 0; i < entriesCount; ++i)
-    if ( ((input + i)->type == JSON_OBJECT) || ((input + i)->type == JSON_ARRAY) ) { freeJsonContents((input + i)->value.object); free((input + i)->value.object); }
+    if ( ( ((input + i)->type == JSON_OBJECT) || ((input + i)->type == JSON_ARRAY) ) && ((input + i)->value.object != NULL) ) { freeJsonContents((input + i)->value.object); free((input + i)->value.object); }
 }
 void freeJsonContents(json *input) {
   if (input == NULL) return;
@@ -18,6 +18,9 @@ void freeJsonContents(json *input) {
 
   freeEntries(input->entries, input->entriesCount);
   free(input->entries);
+
+  input->entriesCount = 0;
+  input->entries = NULL;
 }
 
 char *skipWhitespace(char *data, const char *finalPosition) {
@@ -324,8 +327,16 @@ char *_parseJsonString(const char *data, const char *finalPosition, json *output
 
   /// Realloc to fit the data perfectly
   entriesSize = output->entriesCount;
-  output->entries = (jsonEntry *)realloc(output->entries, sizeof(jsonEntry) * entriesSize);
-  if (output->entries == NULL) { strcpy(errorLog, "Error: `parseJsonString` re-allocating entries. ID: 1"); goto error; }
+  if (entriesSize > 0) {
+    output->entries = (jsonEntry *)realloc(output->entries, sizeof(jsonEntry) * entriesSize);
+    if (output->entries == NULL) { strcpy(errorLog, "Error: `parseJsonString` re-allocating entries. ID: 1"); goto error; }
+  } else {
+    output->entriesCount = 0;
+    if (output->entries != NULL) {
+      free(output->entries);
+      output->entries = NULL;
+    } else { strcpy(errorLog, "Error: `parseJsonString` re-allocating entries. ID: 2"); goto error; }
+  }
 
   /// Leave and error handling
   goto leave;
